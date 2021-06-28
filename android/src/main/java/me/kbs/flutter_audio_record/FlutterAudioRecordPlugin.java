@@ -17,6 +17,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Base64;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -102,6 +104,7 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
              * 1.设置缓冲区大小
              * 参数:采样率 16k; 通道数 单通道; 采样位数
              */
+            // 获得缓冲区字节大小
             int bufferSize = AudioRecord.getMinBufferSize(sampleRateInHz,
                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT * 1);
             /**
@@ -120,11 +123,14 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
             try {
                 audioRecord.startRecording();
                 while (isRecord) {
-                    byte[] byteBuffer = new byte[bufferSize];
-                    int end = audioRecord.read(byteBuffer, 0, byteBuffer.length);
-                    final String base64 = Base64.getEncoder().encodeToString(byteBuffer);
+                    ByteBuffer audioBuffer = ByteBuffer.allocateDirect(bufferSize).order(ByteOrder.LITTLE_ENDIAN);//小端模式
+                    int end = audioRecord.read(audioBuffer, audioBuffer.capacity());
+                    int len = audioBuffer.limit() - audioBuffer.position();
+                    byte[] bytes = new byte[len];
+                    audioBuffer.get(bytes);
+                    final String base64 = Base64.getEncoder().encodeToString(bytes);
                     Log.i("bufferSize: ", String.valueOf(bufferSize));
-                    Log.i("data: ", base64);
+                    Log.i("base64: ", base64);
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         @Override
                         public void run() {
