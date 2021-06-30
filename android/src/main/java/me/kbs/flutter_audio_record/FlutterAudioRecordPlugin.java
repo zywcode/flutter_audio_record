@@ -12,21 +12,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Base64;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BasicMessageChannel;
-import io.flutter.plugin.common.MethodCall;
-import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.StringCodec;
 
 /**
@@ -41,7 +32,6 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
 
     private boolean isRecord = false;//是否在录制，默认没在录制
     private AudioRecordThread audioRecordThread;
-    private int samples_per_frame = 2048;
     private int sampleRateInHz = 8000;
 
     @Override
@@ -57,8 +47,8 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
 
     @Override
     public void onMessage(@Nullable String message, @NonNull BasicMessageChannel.Reply<String> reply) {
-        Log.i("FlutterPluginRecord: ", message);
-        reply.reply("FlutterAudioRecordPlugin收到：" + message);//可以通过reply进行回复
+        Log.i("FlutterRecord: ", message);
+        reply.reply("FlutterRecord收到：" + message);//可以通过reply进行回复
         if (message.equals("startRecord")) {
             startRecord1();
         } else if (message.equals("stopRecord")) {
@@ -78,7 +68,7 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
 
     @Override
     public void reply(@Nullable String reply) {
-        Log.i("FlutterPluginRecord: ", reply);
+        Log.i("FlutterRecord: ", reply);
     }
 
     //开始录制
@@ -99,18 +89,18 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
         private int bufferSize;
 
         AudioRecordThread() {
-            Log.i("FlutterPluginRecord: ", "AudioRecordThread");
+            Log.i("FlutterRecord: ", "AudioRecordThread");
             /**
              * 1.设置缓冲区大小
              * 参数:采样率 16k; 通道数 单通道; 采样位数
              */
-            // 获得缓冲区字节大小
-            int bufferSize = AudioRecord.getMinBufferSize(sampleRateInHz,
+            bufferSize = AudioRecord.getMinBufferSize(sampleRateInHz,
                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT * 1);
+            Log.i("BufferSize: ", String.valueOf(bufferSize));
             /**
-             * 2.初始化AudioRecord
-             * 参数:录音来源 麦克风; 采样率 16k; 通道数 单通道 ;采样位数/数据格式 pcm; 缓冲区大小
-             */
+                     * 2.初始化AudioRecord
+                     * 参数:录音来源 麦克风; 采样率 16k; 通道数 单通道 ;采样位数/数据格式 pcm; 缓冲区大小
+                     */
             audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRateInHz,
                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
         }
@@ -118,7 +108,7 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
         @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void run() {
-            Log.i("FlutterPluginRecord: ", "AudioRecordThread Run");
+            Log.i("FlutterRecord: ", "AudioRecordThread Run");
             super.run();
             try {
                 audioRecord.startRecording();
@@ -129,8 +119,9 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
                     byte[] bytes = new byte[len];
                     audioBuffer.get(bytes);
                     final String base64 = Base64.getEncoder().encodeToString(bytes);
-                    Log.i("bufferSize: ", String.valueOf(bufferSize));
-                    Log.i("base64: ", base64);
+                    Log.i("FlutterRecord: ", "BufferSize: " + String.valueOf(bufferSize));
+                    Log.i("FlutterRecord: ", "Base64: " + base64);
+                    audioBuffer.clear();
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         @Override
                         public void run() {
@@ -138,15 +129,15 @@ public class FlutterAudioRecordPlugin implements FlutterPlugin, BasicMessageChan
                         }
                     });
                     if (end == android.media.AudioRecord.ERROR_BAD_VALUE || end == android.media.AudioRecord.ERROR_INVALID_OPERATION) {
-                        Log.e("wqs", "Read error");
+                        Log.e("FlutterRecord", "Read error");
                     }
                 }
             } catch (IllegalStateException e) {
                 e.printStackTrace();
             } finally {
-                isRecord = false;// 停止文件写入
+                isRecord = false;
                 audioRecord.stop();
-                audioRecord.release();// 释放资源
+                audioRecord.release();
                 audioRecord = null;
             }
         }
